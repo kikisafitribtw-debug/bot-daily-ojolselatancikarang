@@ -14,8 +14,8 @@ Import matplotlib.pyplot as plt
 
 
 
-TOKEN=os.getenv(“TOKEN = "123456789:AAxxxxxxxxxxxxxxxx"
-ADMIN_ID = 123456789”)
+TOKEN=os.getenv(“TOKEN = "8482263728:AAEJI2AozPQZDmUNNmpEYr2_6MOkRDFD_Vw"
+ADMIN_ID = 5410925696”)
 
 ADMIN_ID=5410925696
 
