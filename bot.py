@@ -1,387 +1,213 @@
-Import os
+import sqlite3
+from datetime import datetime
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import matplotlib.pyplot as plt
 
-Import sqlite3
+TOKEN = "8482263728:AAEJI2AozPQZDmUNNmpEYr2_6MOkRDFD_Vw"
+ADMIN_ID = 5410925696
 
-From datetime import datetime,timedelta
+conn = sqlite3.connect("ojol.db", check_same_thread=False)
+c = conn.cursor()
 
-From telegram import Update,ReplyKeyboardMarkup
-
-From telegram.ext import ApplicationBuilder,CommandHandler,MessageHandler,ContextTypes,filters
-
-From apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-Import matplotlib.pyplot as plt
-
-
-
-TOKEN=os.getenv(“TOKEN = "8482263728:AAEJI2AozPQZDmUNNmpEYr2_6MOkRDFD_Vw"
-ADMIN_ID = 5410925696”)
-
-ADMIN_ID=5410925696
-
-
-
-Conn=sqlite3.connect(“ojol.db”,check_same_thread=False)
-
-C=conn.cursor()
-
-
-
-c.execute(“””CREATE TABLE IF NOT EXISTS drivers(
-
-id INTEGER PRIMARY KEY,
-
+c.execute("""
+CREATE TABLE IF NOT EXISTS drivers(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT,
-
 phone TEXT,
-
 password TEXT,
-
 mod TEXT
+)
+""")
 
-)”””)
-
-
-
-c.execute(“””CREATE TABLE IF NOT EXISTS transaksi(
-
+c.execute("""
+CREATE TABLE IF NOT EXISTS transaksi(
 driver TEXT,
-
 tanggal TEXT,
-
 tipe TEXT,
-
 jumlah INTEGER
+)
+""")
 
-)”””)
+conn.commit()
 
+login_user = {}
 
+menu_driver = ReplyKeyboardMarkup([
+["🚕 Order","⛽ Bensin"],
+["🍜 Makan","🅿 Parkir"],
+["🔧 Servis","📊 Saldo"],
+["📅 Rekap Hari","📆 Rekap Minggu"],
+["🗓 Rekap Bulan","📈 Grafik"],
+["📱 REGIST MOD","💬 Chat Admin"],
+["🔑 Reset Password"]
+], resize_keyboard=True)
 
-Conn.commit()
+menu_admin = ReplyKeyboardMarkup([
+["👥 List Driver"],
+["📊 Semua Transaksi"]
+], resize_keyboard=True)
 
-
-
-Login_user={}
-
-
-
-Menu_driver=ReplyKeyboardMarkup([
-
-[“🚕 Order”,”⛽ Bensin”],
-
-[“🍜 Makan”,”🅿 Parkir”],
-
-[“🔧 Servis”,”📊 Saldo”],
-
-[“📅 Rekap Hari”,”📆 Rekap Minggu”],
-
-[“🗓 Rekap Bulan”,”📈 Grafik”],
-
-[“📱 REGIST MOD”,”💬 Chat Admin”],
-
-[“🔑 Reset Password”]
-
-],resize_keyboard=True)
+menu_mod = ReplyKeyboardMarkup([
+["Shopee MOD"],
+["Grab MOD"],
+["Gojek MOD"],
+["Maxim MOD"]
+], resize_keyboard=True)
 
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-Menu_admin=ReplyKeyboardMarkup([
+    if update.message.from_user.id == ADMIN_ID:
+        await update.message.reply_text("Admin Panel", reply_markup=menu_admin)
+        return
 
-[“👥 List Driver”],
-
-[“📊 Semua Transaksi”]
-
-],resize_keyboard=True)
-
-
-
-Menu_mod=ReplyKeyboardMarkup([
-
-[“Shopee MOD”],
-
-[“Grab MOD”],
-
-[“Gojek MOD”],
-
-[“Maxim MOD”]
-
-],resize_keyboard=True)
-
-
-
-Async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
-
-
-    If update.message.from_user.id==ADMIN_ID:
-
-        Await update.message.reply_text(“Admin Panel”,reply_markup=menu_admin)
-
-        Return
-
-
-
-    Await update.message.reply_text(
-
-“””Daftar:
-
-Daftar nama nomorhp password
-
-
+    await update.message.reply_text(
+"""Daftar:
+daftar nama nomorhp password
 
 Login:
-
-Login nama password
-
-“””)
-
+login nama password
+"""
+    )
 
 
-Async def laporan_harian(app):
+async def laporan_harian(app):
 
+    hari = str(datetime.now().date())
 
+    c.execute("SELECT driver,tipe,jumlah FROM transaksi WHERE tanggal=?", (hari,))
+    data = c.fetchall()
 
-    Hari=str(datetime.now().date())
-
-
-
-    c.execute(“SELECT driver,tipe,jumlah FROM transaksi WHERE tanggal=?”,(hari,))
-
-    data=c.fetchall()
-
-
-
-    laporan=”📊 Laporan Harian\n”
-
-
+    laporan = "📊 Laporan Harian\n"
 
     for d in data:
+        laporan += f"{d[0]} | {d[1]} | {d[2]}\n"
 
-        laporan+=f”{d[0]} {d[1]} {d[2]}\n”
-
-
-
-    await app.bot.send_message(ADMIN_ID,laporan)
+    await app.bot.send_message(ADMIN_ID, laporan)
 
 
+async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-async def message(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    user = update.message.from_user.id
 
+    if text.lower().startswith("daftar"):
 
+        data = text.split()
 
-    text=update.message.text
-
-    user=update.message.from_user.id
-
-
-
-    if text.startswith(“daftar”):
-
-
-
-        data=text.split()
-
-
-
-        if len(data)!=4:
-
+        if len(data) != 4:
+            await update.message.reply_text("Format: daftar nama nomorhp password")
             return
 
+        nama = data[1]
+        hp = data[2]
+        pw = data[3]
 
-
-        nama=data[1]
-
-        hp=data[2]
-
-        pw=data[3]
-
-
-
-        c.execute(“INSERT INTO drivers VALUES(NULL,?,?,?,?)”,(nama,hp,pw,””))
-
+        c.execute("INSERT INTO drivers VALUES(NULL,?,?,?,?)", (nama, hp, pw, ""))
         conn.commit()
 
-
-
-        await update.message.reply_text(“Pendaftaran berhasil”)
-
+        await update.message.reply_text("Pendaftaran berhasil")
         return
 
 
+    if text.lower().startswith("login"):
 
-    if text.startswith(“login”):
+        data = text.split()
 
+        if len(data) != 3:
+            await update.message.reply_text("Format: login nama password")
+            return
 
+        nama = data[1]
+        pw = data[2]
 
-        data=text.split()
-
-
-
-        nama=data[1]
-
-        pw=data[2]
-
-
-
-        c.execute(“SELECT * FROM drivers WHERE name=? AND password=?”,(nama,pw))
-
-        d=c.fetchone()
-
-
+        c.execute("SELECT * FROM drivers WHERE name=? AND password=?", (nama, pw))
+        d = c.fetchone()
 
         if d:
-
-            login_user[user]=nama
-
-            await update.message.reply_text(“Login berhasil”,reply_markup=menu_driver)
-
+            login_user[user] = nama
+            await update.message.reply_text("Login berhasil", reply_markup=menu_driver)
         else:
-
-            await update.message.reply_text(“Login gagal”)
-
-
+            await update.message.reply_text("Login gagal")
 
         return
-
 
 
     if user not in login_user:
-
         return
 
+    driver = login_user[user]
 
 
-    driver=login_user[user]
+    if text == "🚕 Order":
+        context.user_data["tipe"] = "order"
+        await update.message.reply_text("Masukkan jumlah penghasilan")
+
+    elif text == "📱 REGIST MOD":
+        await update.message.reply_text("Pilih MOD", reply_markup=menu_mod)
 
 
+    elif text in ["Shopee MOD","Grab MOD","Gojek MOD","Maxim MOD"]:
 
-    if text==”🚕 Order”:
-
-        context.user_data[“tipe”]=”order”
-
-        await update.message.reply_text(“Masukkan jumlah”)
-
-
-
-    elif text==”📱 REGIST MOD”:
-
-        await update.message.reply_text(“Pilih MOD”,reply_markup=menu_mod)
-
-
-
-    elif text in [“Shopee MOD”,”Grab MOD”,”Gojek MOD”,”Maxim MOD”]:
-
-
-
-        c.execute(“UPDATE drivers SET mod=? WHERE name=?”,(text,driver))
-
+        c.execute("UPDATE drivers SET mod=? WHERE name=?", (text, driver))
         conn.commit()
 
+        await context.bot.send_message(ADMIN_ID, f"{driver} memakai {text}")
+
+        await update.message.reply_text("MOD tersimpan. Silakan chat admin.")
 
 
-        await context.bot.send_message(ADMIN_ID,f”{driver} memakai {text}”)
+    elif text == "📈 Grafik":
 
+        c.execute("SELECT jumlah FROM transaksi WHERE driver=? AND tipe='order'", (driver,))
+        data = c.fetchall()
 
+        nilai = [d[0] for d in data]
 
-        await update.message.reply_text(“MOD tersimpan. Silakan chat admin.”)
-
-
-
-    elif text==”📈 Grafik”:
-
-
-
-        c.execute(“SELECT jumlah FROM transaksi WHERE driver=? AND tipe=’order’”,(driver,))
-
-        data=c.fetchall()
-
-
-
-        nilai=[d[0] for d in data]
-
-
+        if len(nilai) == 0:
+            await update.message.reply_text("Belum ada data grafik")
+            return
 
         plt.plot(nilai)
+        plt.title("Grafik Penghasilan")
 
-        plt.title(“Grafik Penghasilan”)
-
-
-
-        file=”grafik.png”
-
+        file = "grafik.png"
         plt.savefig(file)
-
         plt.close()
 
-
-
-        await context.bot.send_photo(user,open(file,”rb”))
-
+        await context.bot.send_photo(user, open(file, "rb"))
 
 
     else:
 
-
-
         if text.isdigit():
 
-
-
-            tipe=context.user_data.get(“tipe”)
-
-
+            tipe = context.user_data.get("tipe")
 
             if tipe:
 
-
-
-                jumlah=int(text)
-
-                tanggal=str(datetime.now().date())
-
-
+                jumlah = int(text)
+                tanggal = str(datetime.now().date())
 
                 c.execute(
-
-                “INSERT INTO transaksi VALUES(?,?,?,?)”,
-
-                (driver,tanggal,tipe,jumlah)
-
+                    "INSERT INTO transaksi VALUES(?,?,?,?)",
+                    (driver, tanggal, tipe, jumlah)
                 )
 
+                conn.commit()
+
+                await update.message.reply_text("Data tersimpan")
 
 
-                Conn.commit()
+app = ApplicationBuilder().token(TOKEN).build()
 
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT, message))
 
+scheduler = AsyncIOScheduler()
+scheduler.add_job(laporan_harian, "cron", hour=23, minute=59, args=[app])
+scheduler.start()
 
-                Await update.message.reply_text(“Data tersimpan”)
-
-
-
-App=ApplicationBuilder().token(TOKEN).build()
-
-
-
-App.add_handler(CommandHandler(“start”,start))
-
-App.add_handler(MessageHandler(filters.TEXT,message))
-
-
-
-Scheduler=AsyncIOScheduler()
-
-
-
-Scheduler.add_job(laporan_harian,”cron”,hour=23,minute=59,args=[app])
-
-
-
-Scheduler.start()
-
-
-
-App.run_polling()
-
-
-
+app.run_polling()
