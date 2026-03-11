@@ -208,11 +208,13 @@ app.add_handler(MessageHandler(filters.TEXT, message))
 
 scheduler = AsyncIOScheduler()
 
-scheduler.add_job(laporan_harian, "cron", hour=23, minute=59, args=[app])
-
-async def main():
+async def start_scheduler(app):
+    scheduler.add_job(laporan_harian, "cron", hour=23, minute=59, args=[app])
     scheduler.start()
-    await app.run_polling()
 
-import asyncio
-asyncio.run(main())
+app = ApplicationBuilder().token(TOKEN).post_init(start_scheduler).build()
+
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT, message))
+
+app.run_polling()
