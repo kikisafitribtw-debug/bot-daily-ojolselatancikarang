@@ -207,7 +207,12 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT, message))
 
 scheduler = AsyncIOScheduler()
-scheduler.add_job(laporan_harian, "cron", hour=23, minute=59, args=[app])
-scheduler.start()
 
-app.run_polling()
+scheduler.add_job(laporan_harian, "cron", hour=23, minute=59, args=[app])
+
+async def main():
+    scheduler.start()
+    await app.run_polling()
+
+import asyncio
+asyncio.run(main())
